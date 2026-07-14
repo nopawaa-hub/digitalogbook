@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "description": "Premium digital Visitor Log Book for ESLessonCraftMY innovation exhibition booth",
+  "engines": { "node": ">=20" },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
