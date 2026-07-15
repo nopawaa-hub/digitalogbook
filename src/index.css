@@ -34,6 +34,27 @@
 }
 
 @layer utilities {
+  /* Infinite marquee / ticker — continuous horizontal scroll for the visitor
+     log "Animate" mode. Rows use different durations + directions for a
+     brick-like staggered feel. Content is duplicated so the loop is seamless. */
+  @keyframes marquee-left {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+  @keyframes marquee-right {
+    0% { transform: translateX(-50%); }
+    100% { transform: translateX(0); }
+  }
+  .marquee-track {
+    display: flex;
+    gap: 1rem;
+    width: max-content;
+    will-change: transform;
+  }
+  .marquee-row:hover .marquee-track {
+    animation-play-state: paused;
+  }
+
   /* The ripple animation used by GlowButton (defined via inline style 'ripple'). */
   @keyframes ripple {
     0% {

@@ -43,9 +43,8 @@ export function VisitorLogsScreen({ totalCount }: { totalCount: number }) {
   const [localCount, setLocalCount] = useState<number | null>(null)
   const displayCount = localCount ?? totalCount
 
-  // Carousel / "Animate" mode: cycles a single full-size entry card on a timer.
+  // "Animate" mode: infinite marquee ticker of entry cards.
   const [animateMode, setAnimateMode] = useState(false)
-  const [carouselIdx, setCarouselIdx] = useState(0)
 
   // Delete-flow state.
   const [pending, setPending] = useState<PendingDelete | null>(null)
@@ -54,15 +53,6 @@ export function VisitorLogsScreen({ totalCount }: { totalCount: number }) {
   const [deleting, setDeleting] = useState(false)
   const [confirmingEntry, setConfirmingEntry] = useState<LogEntry | null>(null)
   const [confirmingAll, setConfirmingAll] = useState(false)
-
-  // Auto-advance the carousel every 5s while in animate mode.
-  useEffect(() => {
-    if (!animateMode || entries.length <= 1) return
-    const t = window.setInterval(() => {
-      setCarouselIdx((i) => (i + 1) % entries.length)
-    }, 5000)
-    return () => window.clearInterval(t)
-  }, [animateMode, entries.length])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -181,7 +171,6 @@ export function VisitorLogsScreen({ totalCount }: { totalCount: number }) {
                 onClick={() => {
                   sound.play('click')
                   setAnimateMode((v) => !v)
-                  setCarouselIdx(0)
                 }}
                 className={`flex h-10 items-center gap-1.5 rounded-full border px-3 text-xs font-medium shadow-sm backdrop-blur-md transition-colors ${
                   animateMode
@@ -242,47 +231,53 @@ export function VisitorLogsScreen({ totalCount }: { totalCount: number }) {
             </p>
           </GlassCard>
         ) : animateMode ? (
-          // ── Carousel / "Animate" mode: one big card, auto-cycles every 5s. ──
-          <div className="flex flex-col items-center gap-6">
-            <div className="relative w-full" style={{ minHeight: 280 }}>
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={carouselIdx}
-                  initial={{ opacity: 0, x: 80, scale: 0.96 }}
-                  animate={{ opacity: 1, x: 0, scale: 1 }}
-                  exit={{ opacity: 0, x: -80, scale: 0.96 }}
-                  transition={{ type: 'spring', stiffness: 260, damping: 28 }}
-                >
-                  <EntryCard
-                    entry={entries[carouselIdx]}
-                    index={carouselIdx}
-                    totalCount={displayCount}
-                    onDelete={() => requestDelete({ kind: 'one', entry: entries[carouselIdx] })}
-                  />
-                </motion.div>
-              </AnimatePresence>
-            </div>
-            {/* Progress dots */}
-            <div className="flex items-center gap-2">
-              {entries.map((_, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  aria-label={`Go to entry ${i + 1}`}
-                  onClick={() => {
-                    sound.play('click')
-                    setCarouselIdx(i)
+          // ── Infinite marquee / ticker: 3 brick-like rows scrolling continuously. ──
+          // Each row has a different direction + speed for a staggered brick feel.
+          // Content is duplicated so the -50% translate loops seamlessly.
+          // Hover any row to pause it for reading.
+          <div className="flex flex-col gap-4">
+            {[
+              { dir: 'left', dur: 42, offset: 0 },
+              { dir: 'right', dur: 58, offset: 1 },
+              { dir: 'left', dur: 48, offset: 0 },
+            ].map((row, ri) => {
+              const rowEntries =
+                entries.length > 6
+                  ? entries.filter((_, i) => i % 3 === row.offset)
+                  : entries
+              const list = rowEntries.length > 0 ? rowEntries : entries
+              // Duplicate the list twice for a seamless infinite loop.
+              const doubled = [...list, ...list]
+              return (
+                <div
+                  key={ri}
+                  className="marquee-row relative overflow-hidden rounded-3xl"
+                  style={{
+                    maskImage:
+                      'linear-gradient(to right, transparent, black 8%, black 92%, transparent)',
+                    WebkitMaskImage:
+                      'linear-gradient(to right, transparent, black 8%, black 92%, transparent)',
                   }}
-                  className={`h-2.5 rounded-full transition-all ${
-                    i === carouselIdx
-                      ? 'w-8 bg-brand-gradient'
-                      : 'w-2.5 bg-brand-200 hover:bg-brand-300'
-                  }`}
-                />
-              ))}
-            </div>
-            <p className="text-xs uppercase tracking-[0.2em] text-brand-400">
-              Auto-advancing · Entry {carouselIdx + 1} of {entries.length}
+                >
+                  <div
+                    className="marquee-track py-2"
+                    style={{
+                      animation: `marquee-${row.dir} ${row.dur}s linear infinite`,
+                    }}
+                  >
+                    {doubled.map((entry, i) => (
+                      <MarqueeCard
+                        key={`${entry.id}-${i}`}
+                        entry={entry}
+                        totalCount={displayCount}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+            <p className="mt-2 text-center text-xs uppercase tracking-[0.2em] text-brand-400">
+              Hover to pause · {entries.length} entries scrolling
             </p>
           </div>
         ) : (
@@ -468,6 +463,67 @@ function StarRow({ value }: { value: number }) {
           strokeWidth={1.5}
         />
       ))}
+    </div>
+  )
+}
+
+/**
+ * Compact card for the marquee ticker — a fixed-width glass card showing the
+ * visitor's name, institution, comment, rating, and neon signature. Designed
+ * to tile horizontally in the scrolling rows.
+ */
+function MarqueeCard({
+  entry,
+  totalCount,
+}: {
+  entry: LogEntry
+  totalCount: number
+}) {
+  const [sigFailed, setSigFailed] = useState(false)
+  const date = entry.timestamp ? new Date(entry.timestamp) : null
+
+  return (
+    <div className="flex w-72 shrink-0 flex-col gap-2 rounded-3xl border border-white/40 bg-white/55 p-4 shadow-glass backdrop-blur-xl">
+      {/* Name + badge */}
+      <div className="flex items-center gap-2">
+        <h4 className="truncate text-sm font-semibold text-brand-800">
+          {entry.name || 'Anonymous'}
+        </h4>
+        {entry.visitorNumber > 0 && (
+          <span className="shrink-0 rounded-full bg-gold-gradient px-1.5 py-0.5 text-[10px] font-semibold text-gold-600">
+            #{fmtNumber(totalCount)}
+          </span>
+        )}
+        {entry.rating > 0 && <StarRow value={entry.rating} />}
+      </div>
+
+      {/* Institution + date */}
+      <p className="text-xs text-slate-500">
+        {entry.institution}
+        {entry.position ? ` · ${entry.position}` : ''}
+      </p>
+      {date && (
+        <p className="text-[10px] text-slate-400">{date.toLocaleDateString()}</p>
+      )}
+
+      {/* Comment */}
+      {entry.typedComment ? (
+        <p className="line-clamp-2 text-xs leading-relaxed text-slate-600">
+          “{entry.typedComment}”
+        </p>
+      ) : null}
+
+      {/* Neon signature */}
+      {entry.signatureImage && !sigFailed ? (
+        <div className="flex flex-1 items-center justify-center pt-1">
+          <NeonSignature
+            src={entry.signatureImage}
+            alt={`${entry.name}'s signature`}
+            className="max-h-20 w-full max-w-[12rem] object-contain"
+            onError={() => setSigFailed(true)}
+          />
+        </div>
+      ) : null}
     </div>
   )
 }
