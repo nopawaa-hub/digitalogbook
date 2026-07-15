@@ -20,9 +20,11 @@ import {
 import {
   ensureCounterSeed,
   getSubmissionCount,
+  getLatestJudgeAssessmentSession,
   reserveVisitorNumber,
   uploadImageData,
   createSubmission,
+  type JudgeAssessment,
 } from '@/firebase/visitors'
 import { FIRESTORE } from '@/firebase/config'
 
@@ -41,11 +43,19 @@ function AppInner() {
     useState<SerializedStrokes | null>(null)
   const [signatureImageUrl, setSignatureImageUrl] = useState('')
 
+  // Judge assessment state — when non-null, the Judge tab shows a certificate.
+  const [judgeAssessment, setJudgeAssessment] =
+    useState<JudgeAssessment[] | null>(null)
+  const refreshJudgeAssessment = useCallback(() => {
+    void getLatestJudgeAssessmentSession().then(setJudgeAssessment)
+  }, [])
+
   // Boot: seed the counter doc (defensively, for reserved-number uniqueness)
-  // and read the ACTUAL submission count for the displayed total.
+  // and read the ACTUAL submission count + judge assessment state.
   useEffect(() => {
     void ensureCounterSeed().finally(() => {
       void getSubmissionCount().then(setTotalVisitors)
+      void getLatestJudgeAssessmentSession().then(setJudgeAssessment)
     })
   }, [])
 
@@ -73,6 +83,7 @@ function AppInner() {
         return
       }
       if (section === 'judges') {
+        refreshJudgeAssessment()
         setScreen('judges')
         return
       }
@@ -191,6 +202,7 @@ function AppInner() {
             screen === 'logs' ? 'logs' : screen === 'judges' ? 'judges' : 'sign'
           }
           onChange={handleNav}
+          judgesAssessed={!!judgeAssessment}
         />
       )}
 
@@ -223,7 +235,13 @@ function AppInner() {
         {screen === 'logs' && (
           <VisitorLogsScreen key="logs" totalCount={totalVisitors} />
         )}
-        {screen === 'judges' && <JudgeAssessmentScreen key="judges" />}
+        {screen === 'judges' && (
+          <JudgeAssessmentScreen
+            key="judges"
+            assessed={judgeAssessment}
+            onAssessedChange={refreshJudgeAssessment}
+          />
+        )}
       </AnimatePresence>
     </div>
   )

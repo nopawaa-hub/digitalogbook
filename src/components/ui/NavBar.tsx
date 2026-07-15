@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { PenLine, BookOpen, Scale } from 'lucide-react'
+import { PenLine, BookOpen, Scale, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { sound } from '@/lib/sound'
 
@@ -8,6 +8,8 @@ export type NavSection = 'sign' | 'logs' | 'judges'
 interface NavBarProps {
   active: NavSection
   onChange: (section: NavSection) => void
+  /** When true, shows a green "Assessed ✓" badge on the Judge Assessment tab. */
+  judgesAssessed?: boolean
 }
 
 /**
@@ -20,7 +22,7 @@ interface NavBarProps {
  * Rendered by App on all screens except the momentary celebration animation,
  * so visitors at the booth can switch between signing and browsing at any time.
  */
-export function NavBar({ active, onChange }: NavBarProps) {
+export function NavBar({ active, onChange, judgesAssessed = false }: NavBarProps) {
   return (
     <div className="pointer-events-none fixed inset-x-0 top-4 z-40 flex justify-center px-4">
       <nav className="pointer-events-auto flex items-center gap-1 rounded-full border border-white/40 bg-white/60 p-1 shadow-glass backdrop-blur-xl">
@@ -38,6 +40,12 @@ export function NavBar({ active, onChange }: NavBarProps) {
           <Scale className="h-4 w-4" />
           <span className="hidden xs:inline sm:inline">Judge Assessment</span>
           <span className="xs:hidden sm:hidden">Judges</span>
+          {judgesAssessed && (
+            <span className="ml-1 flex items-center gap-0.5 rounded-full bg-emerald-500 px-1.5 py-0.5 text-[10px] font-semibold text-white shadow-sm">
+              <Check className="h-2.5 w-2.5" />
+              Assessed
+            </span>
+          )}
         </NavTab>
       </nav>
     </div>

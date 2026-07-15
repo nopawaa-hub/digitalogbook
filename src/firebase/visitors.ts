@@ -331,5 +331,42 @@ export async function fetchJudgeAssessments(max = 50): Promise<JudgeAssessment[]
   })
 }
 
+/**
+ * Get the latest assessment session — the group of judge-assessment docs that
+ * share the most recent timestamp (within ±5s, since a batch of 3 saves in
+ * parallel with identical-ish timestamps). Returns null if none exist.
+ *
+ * Used by App to decide whether to show the certificate view or the form.
+ */
+export async function getLatestJudgeAssessmentSession(): Promise<JudgeAssessment[] | null> {
+  try {
+    const all = await fetchJudgeAssessments(50)
+    if (all.length === 0) return null
+    const latestTs = all[0].timestamp
+    // Group all docs within ±5s of the latest timestamp = the latest session.
+    return all.filter((a) => Math.abs(a.timestamp - latestTs) <= 5000)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Delete the latest assessment session (undo). Removes the most recent batch
+ * of judge-assessment docs + their Storage signature images. Best-effort on
+ * images; the Firestore docs are always deleted.
+ */
+export async function clearLatestJudgeAssessmentSession(): Promise<void> {
+  const session = await getLatestJudgeAssessmentSession()
+  if (!session || session.length === 0) return
+  await Promise.all(
+    session.map((a) =>
+      Promise.all([
+        deleteDoc(doc(db, FIRESTORE.judgeAssessments, a.id)),
+        deleteStorageObjectByUrl(a.signatureImage),
+      ]),
+    ),
+  )
+}
+
 
 
