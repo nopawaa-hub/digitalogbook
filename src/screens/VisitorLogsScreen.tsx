@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { BookOpen, RefreshCw, Star, Quote, Trash2, X } from 'lucide-react'
+import { BookOpen, RefreshCw, Star, Quote, Trash2, X, PlayCircle } from 'lucide-react'
 import { GlassCard } from '@/components/ui/GlassCard'
 import { VisitorCounter } from '@/components/ui/VisitorCounter'
 import { NeonSignature } from '@/components/ui/NeonSignature'
@@ -43,6 +43,10 @@ export function VisitorLogsScreen({ totalCount }: { totalCount: number }) {
   const [localCount, setLocalCount] = useState<number | null>(null)
   const displayCount = localCount ?? totalCount
 
+  // Carousel / "Animate" mode: cycles a single full-size entry card on a timer.
+  const [animateMode, setAnimateMode] = useState(false)
+  const [carouselIdx, setCarouselIdx] = useState(0)
+
   // Delete-flow state.
   const [pending, setPending] = useState<PendingDelete | null>(null)
   const [passwordOpen, setPasswordOpen] = useState(false)
@@ -50,6 +54,15 @@ export function VisitorLogsScreen({ totalCount }: { totalCount: number }) {
   const [deleting, setDeleting] = useState(false)
   const [confirmingEntry, setConfirmingEntry] = useState<LogEntry | null>(null)
   const [confirmingAll, setConfirmingAll] = useState(false)
+
+  // Auto-advance the carousel every 5s while in animate mode.
+  useEffect(() => {
+    if (!animateMode || entries.length <= 1) return
+    const t = window.setInterval(() => {
+      setCarouselIdx((i) => (i + 1) % entries.length)
+    }, 5000)
+    return () => window.clearInterval(t)
+  }, [animateMode, entries.length])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -159,6 +172,27 @@ export function VisitorLogsScreen({ totalCount }: { totalCount: number }) {
             >
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             </motion.button>
+            {entries.length > 0 && (
+              <motion.button
+                type="button"
+                aria-label={animateMode ? 'Stop animation' : 'Animate entries'}
+                whileTap={{ scale: 0.9 }}
+                whileHover={{ scale: 1.06 }}
+                onClick={() => {
+                  sound.play('click')
+                  setAnimateMode((v) => !v)
+                  setCarouselIdx(0)
+                }}
+                className={`flex h-10 items-center gap-1.5 rounded-full border px-3 text-xs font-medium shadow-sm backdrop-blur-md transition-colors ${
+                  animateMode
+                    ? 'border-brand-300 bg-brand-gradient text-white shadow-glow'
+                    : 'border-brand-200 bg-white/60 text-brand-600 hover:bg-white'
+                }`}
+              >
+                <PlayCircle className="h-3.5 w-3.5" />
+                {animateMode ? 'Stop' : 'Animate'}
+              </motion.button>
+            )}
             <motion.button
               type="button"
               aria-label="Clear all logs"
@@ -207,6 +241,50 @@ export function VisitorLogsScreen({ totalCount }: { totalCount: number }) {
               for future visitors to see.
             </p>
           </GlassCard>
+        ) : animateMode ? (
+          // ── Carousel / "Animate" mode: one big card, auto-cycles every 5s. ──
+          <div className="flex flex-col items-center gap-6">
+            <div className="relative w-full" style={{ minHeight: 280 }}>
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={carouselIdx}
+                  initial={{ opacity: 0, x: 80, scale: 0.96 }}
+                  animate={{ opacity: 1, x: 0, scale: 1 }}
+                  exit={{ opacity: 0, x: -80, scale: 0.96 }}
+                  transition={{ type: 'spring', stiffness: 260, damping: 28 }}
+                >
+                  <EntryCard
+                    entry={entries[carouselIdx]}
+                    index={carouselIdx}
+                    totalCount={displayCount}
+                    onDelete={() => requestDelete({ kind: 'one', entry: entries[carouselIdx] })}
+                  />
+                </motion.div>
+              </AnimatePresence>
+            </div>
+            {/* Progress dots */}
+            <div className="flex items-center gap-2">
+              {entries.map((_, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  aria-label={`Go to entry ${i + 1}`}
+                  onClick={() => {
+                    sound.play('click')
+                    setCarouselIdx(i)
+                  }}
+                  className={`h-2.5 rounded-full transition-all ${
+                    i === carouselIdx
+                      ? 'w-8 bg-brand-gradient'
+                      : 'w-2.5 bg-brand-200 hover:bg-brand-300'
+                  }`}
+                />
+              ))}
+            </div>
+            <p className="text-xs uppercase tracking-[0.2em] text-brand-400">
+              Auto-advancing · Entry {carouselIdx + 1} of {entries.length}
+            </p>
+          </div>
         ) : (
           <div className="space-y-4">
             <AnimatePresence>
