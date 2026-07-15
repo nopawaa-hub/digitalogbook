@@ -250,4 +250,86 @@ export async function clearAllSubmissions(): Promise<void> {
   await Promise.all(dels)
 }
 
+// ── Judge assessments ──────────────────────────────────────────────────────
+//
+// Separate from visitor submissions. At each assessment session, 3 of the 9
+// judges in the pool participate; their assessments are stored individually
+// in the `judgeAssessments` collection. Submit saves all 3 in one batch.
+
+export interface JudgeAssessmentInput {
+  judgeName: string
+  rating: number
+  comment: string
+  /** PNG data URL of the judge's signature. */
+  signatureImage: string
+  /** Serialized signature strokes for the celebration replay (optional). */
+  signatureStrokes?: unknown
+}
+
+export interface JudgeAssessment extends JudgeAssessmentInput {
+  id: string
+  signatureImage: string
+  timestamp: number
+}
+
+/**
+ * Save one judge assessment: upload the signature PNG to Storage, then write
+ * the Firestore doc with the download URL + the assessment fields.
+ *
+ * Called once per judge; the screen batches 3 of these on submit.
+ */
+export async function saveJudgeAssessment(
+  input: JudgeAssessmentInput,
+): Promise<void> {
+  // Stable id: judge name + timestamp, used for both the doc and the Storage path
+  // so re-saving an assessment for the same judge overwrites (not duplicating).
+  const stamp = Date.now()
+  const safeName = input.judgeName.replace(/[^a-zA-Z0-9]/g, '-').slice(0, 40)
+  const id = `${safeName}-${stamp}`
+
+  const signatureUrl = input.signatureImage
+    ? await uploadImageData(input.signatureImage, FIRESTORE.judgeSignaturePath(id))
+    : ''
+
+  await addDoc(collection(db, FIRESTORE.judgeAssessments), {
+    id,
+    judgeName: input.judgeName,
+    rating: input.rating ?? 0,
+    comment: input.comment ?? '',
+    signatureImage: signatureUrl,
+    signatureStrokes: input.signatureStrokes ?? null,
+    timestamp: stamp,
+    createdAt: serverTimestamp(),
+  })
+}
+
+/** Save a batch of judge assessments together (all 3 in one submit). */
+export async function saveJudgeAssessmentsBatch(
+  assessments: JudgeAssessmentInput[],
+): Promise<void> {
+  await Promise.all(assessments.map((a) => saveJudgeAssessment(a)))
+}
+
+/** Fetch the most recent judge assessments, newest first. */
+export async function fetchJudgeAssessments(max = 50): Promise<JudgeAssessment[]> {
+  const q = query(
+    collection(db, FIRESTORE.judgeAssessments),
+    orderBy('timestamp', 'desc'),
+    limit(max),
+  )
+  const snap = await getDocs(q)
+  return snap.docs.map((d) => {
+    const data = d.data() as Record<string, unknown>
+    return {
+      id: d.id,
+      judgeName: String(data.judgeName ?? ''),
+      rating: Number(data.rating) || 0,
+      comment: String(data.comment ?? ''),
+      signatureImage: String(data.signatureImage ?? ''),
+      timestamp: Number(data.timestamp) || 0,
+    }
+  })
+}
+
+
 

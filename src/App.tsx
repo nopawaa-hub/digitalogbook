@@ -8,6 +8,7 @@ import { WelcomeScreen } from '@/screens/WelcomeScreen'
 import { LogForm, type SubmitPayload } from '@/screens/LogForm'
 import { SuccessCelebration } from '@/screens/SuccessCelebration'
 import { VisitorLogsScreen } from '@/screens/VisitorLogsScreen'
+import { JudgeAssessmentScreen } from '@/screens/JudgeAssessmentScreen'
 import { NavBar, type NavSection } from '@/components/ui/NavBar'
 import type { SerializedStrokes } from '@/components/ink/StrokeEngine'
 import { useIdleTimer } from '@/lib/useIdleTimer'
@@ -25,7 +26,7 @@ import {
 } from '@/firebase/visitors'
 import { FIRESTORE } from '@/firebase/config'
 
-type Screen = 'welcome' | 'form' | 'celebration' | 'logs'
+type Screen = 'welcome' | 'form' | 'celebration' | 'logs' | 'judges'
 
 function AppInner() {
   const toast = useToast()
@@ -69,6 +70,10 @@ function AppInner() {
     (section: NavSection) => {
       if (section === 'logs') {
         setScreen('logs')
+        return
+      }
+      if (section === 'judges') {
+        setScreen('judges')
         return
       }
       // 'sign': only move if not already in the signing flow.
@@ -167,6 +172,7 @@ function AppInner() {
   useIdleTimer(goWelcome, 45_000, screen === 'form')
   useIdleTimer(goWelcome, 10_000, screen === 'celebration')
   useIdleTimer(goWelcome, 60_000, screen === 'logs')
+  useIdleTimer(goWelcome, 90_000, screen === 'judges')
 
   return (
     <div className="relative min-h-dvh w-full overflow-x-hidden">
@@ -181,7 +187,9 @@ function AppInner() {
           so visitors can switch between signing and browsing the logs at any time. */}
       {screen !== 'celebration' && (
         <NavBar
-          active={screen === 'logs' ? 'logs' : 'sign'}
+          active={
+            screen === 'logs' ? 'logs' : screen === 'judges' ? 'judges' : 'sign'
+          }
           onChange={handleNav}
         />
       )}
@@ -215,6 +223,7 @@ function AppInner() {
         {screen === 'logs' && (
           <VisitorLogsScreen key="logs" totalCount={totalVisitors} />
         )}
+        {screen === 'judges' && <JudgeAssessmentScreen key="judges" />}
       </AnimatePresence>
     </div>
   )

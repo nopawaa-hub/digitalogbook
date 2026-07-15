@@ -1,9 +1,9 @@
 import { motion } from 'framer-motion'
-import { PenLine, BookOpen } from 'lucide-react'
+import { PenLine, BookOpen, Scale } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { sound } from '@/lib/sound'
 
-export type NavSection = 'sign' | 'logs'
+export type NavSection = 'sign' | 'logs' | 'judges'
 
 interface NavBarProps {
   active: NavSection
@@ -33,6 +33,11 @@ export function NavBar({ active, onChange }: NavBarProps) {
           <BookOpen className="h-4 w-4" />
           <span className="hidden xs:inline sm:inline">View the Visitor Logs</span>
           <span className="xs:hidden sm:hidden">Logs</span>
+        </NavTab>
+        <NavTab active={active === 'judges'} onClick={() => onChange('judges')}>
+          <Scale className="h-4 w-4" />
+          <span className="hidden xs:inline sm:inline">Judge Assessment</span>
+          <span className="xs:hidden sm:hidden">Judges</span>
         </NavTab>
       </nav>
     </div>

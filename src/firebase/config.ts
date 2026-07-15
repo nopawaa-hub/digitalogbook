@@ -67,4 +67,7 @@ export const FIRESTORE = {
   submissions: 'submissions',
   signaturePath: (visitorNumber: number) => `signatures/${visitorNumber}.png`,
   commentPath: (visitorNumber: number) => `comments/${visitorNumber}.png`,
+  // Judge assessments — separate from visitor submissions.
+  judgeAssessments: 'judgeAssessments',
+  judgeSignaturePath: (id: string) => `judge-signatures/${id}.png`,
 }
