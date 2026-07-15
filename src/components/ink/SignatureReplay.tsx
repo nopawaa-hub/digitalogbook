@@ -13,6 +13,14 @@ interface SignatureReplayProps {
    * `offsetFraction` = horizontal offset from the left (default 0).
    */
   region?: { widthFraction: number; offsetFraction: number }
+  /**
+   * When true, renders as an inline element (position: relative) that fits inside
+   * a parent container (e.g. a certificate card) instead of a fixed full-screen
+   * overlay. The canvas sizes itself to the parent's dimensions.
+   */
+  contained?: boolean
+  /** Optional className for the wrapper (useful in contained mode). */
+  className?: string
 }
 
 /**
@@ -54,7 +62,7 @@ interface Step {
   pressure: number
 }
 
-export function SignatureReplay({ strokes, region }: SignatureReplayProps) {
+export function SignatureReplay({ strokes, region, contained = false, className }: SignatureReplayProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const glowRef = useRef<HTMLCanvasElement>(null)
   const [replayDone, setReplayDone] = useState(false)
@@ -78,10 +86,14 @@ export function SignatureReplay({ strokes, region }: SignatureReplayProps) {
     // stroke coords from the source canvas size to the replay region size.
     const srcW = strokes.width
     const srcH = strokes.height
-    // The replay canvas is sized to the viewport (or a region of it); we scale
-    // strokes to fit, preserving aspect ratio and centering within the region.
-    const fullVw = window.innerWidth
-    const fullVh = window.innerHeight
+    // In contained mode, size to the parent element; otherwise to the viewport.
+    const parent = contained ? ink.parentElement : null
+    const fullVw = contained
+      ? parent?.clientWidth || 280
+      : window.innerWidth
+    const fullVh = contained
+      ? parent?.clientHeight || 120
+      : window.innerHeight
     const vw = region ? fullVw * region.widthFraction : fullVw
     const vh = fullVh
     const regionOffsetX = region ? fullVw * region.offsetFraction : 0
@@ -264,42 +276,37 @@ export function SignatureReplay({ strokes, region }: SignatureReplayProps) {
       running = false
       cancelAnimationFrame(raf)
     }
-  }, [strokes, hasStrokes])
+  }, [strokes, hasStrokes, contained, region])
 
   if (!hasStrokes) return null
 
+  const wrapperClass = contained
+    ? `relative ${className ?? ''}`
+    : 'fixed inset-0 z-20'
+  const wrapperStyle = contained
+    ? { pointerEvents: 'none' as const }
+    : { pointerEvents: 'none' as const }
+
+  // In contained mode, the canvases fill the parent (relative-wrapper). In
+  // overlay mode, they fill the viewport and the region sub-divides them.
+  const canvasStyle = contained
+    ? { position: 'absolute' as const, inset: 0, width: '100%', height: '100%' }
+    : region
+      ? { left: `${region.offsetFraction * 100}%`, width: `${region.widthFraction * 100}%` }
+      : undefined
+
   return (
     <motion.div
-      className="fixed inset-0 z-20"
+      className={wrapperClass}
       initial={{ opacity: 0 }}
-      animate={{ opacity: replayDone ? 0 : 1 }}
+      animate={{ opacity: replayDone && !contained ? 0 : 1 }}
       transition={{ duration: 1.0 }}
-      style={{ pointerEvents: 'none' }}
+      style={wrapperStyle}
     >
       {/* ink layer */}
-      <canvas
-        ref={canvasRef}
-        className="absolute inset-0 h-full w-full"
-        style={
-          region
-            ? { left: `${region.offsetFraction * 100}%`, width: `${region.widthFraction * 100}%` }
-            : undefined
-        }
-      />
+      <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" style={canvasStyle} />
       {/* glow layer */}
-      <canvas
-        ref={glowRef}
-        className="absolute inset-0 h-full w-full"
-        style={
-          region
-            ? { left: `${region.offsetFraction * 100}%`, width: `${region.widthFraction * 100}%` }
-            : undefined
-        }
-      />
-      {/* ink layer */}
-      <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
-      {/* glow layer */}
-      <canvas ref={glowRef} className="absolute inset-0 h-full w-full" />
+      <canvas ref={glowRef} className="absolute inset-0 h-full w-full" style={canvasStyle} />
     </motion.div>
   )
 }

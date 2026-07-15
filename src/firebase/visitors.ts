@@ -15,6 +15,7 @@ import {
 import { ref, uploadString, getDownloadURL, deleteObject } from 'firebase/storage'
 import { db, storage, FIRESTORE } from './config'
 import type { Submission } from '@/lib/validation'
+import type { SerializedStrokes } from '@/components/ink/StrokeEngine'
 import { detectDevice, detectBrowser } from '@/lib/utils'
 
 /**
@@ -266,9 +267,11 @@ export interface JudgeAssessmentInput {
   signatureStrokes?: unknown
 }
 
-export interface JudgeAssessment extends JudgeAssessmentInput {
+export interface JudgeAssessment extends Omit<JudgeAssessmentInput, 'signatureStrokes'> {
   id: string
   signatureImage: string
+  /** Serialized strokes for replay — null if not captured. */
+  signatureStrokes: SerializedStrokes | null
   timestamp: number
 }
 
@@ -326,6 +329,8 @@ export async function fetchJudgeAssessments(max = 50): Promise<JudgeAssessment[]
       rating: Number(data.rating) || 0,
       comment: String(data.comment ?? ''),
       signatureImage: String(data.signatureImage ?? ''),
+      // Include the serialized strokes so the certificate can replay animations.
+      signatureStrokes: (data.signatureStrokes as SerializedStrokes | null) ?? null,
       timestamp: Number(data.timestamp) || 0,
     }
   })

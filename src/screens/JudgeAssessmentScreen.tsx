@@ -502,15 +502,23 @@ function AssessorCard({
         </p>
       )}
 
-      {/* Signature */}
+      {/* Signature — animated replay if strokes were captured, else static neon */}
       {assessment.signatureImage && !sigFailed ? (
-        <div className="flex flex-1 items-center justify-center pt-2">
-          <NeonSignature
-            src={assessment.signatureImage}
-            alt={`${assessment.judgeName}'s signature`}
-            className="max-h-20 w-full max-w-[12rem] object-contain"
-            onError={() => setSigFailed(true)}
-          />
+        <div className="flex h-24 flex-1 items-center justify-center pt-2">
+          {assessment.signatureStrokes ? (
+            <SignatureReplay
+              strokes={assessment.signatureStrokes}
+              contained
+              className="h-full w-full max-w-[14rem]"
+            />
+          ) : (
+            <NeonSignature
+              src={assessment.signatureImage}
+              alt={`${assessment.judgeName}'s signature`}
+              className="max-h-20 w-full max-w-[12rem] object-contain"
+              onError={() => setSigFailed(true)}
+            />
+          )}
         </div>
       ) : null}
     </div>
