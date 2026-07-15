@@ -9,6 +9,8 @@ import {
   type SignaturePadHandle,
 } from '@/components/ink/SignaturePad'
 import { InkFullViewModal } from '@/components/ink/InkFullViewModal'
+import { SignatureReplay } from '@/components/ink/SignatureReplay'
+import type { SerializedStrokes } from '@/components/ink/StrokeEngine'
 import { JUDGE_NAMES } from '@/lib/judges'
 import { saveJudgeAssessmentsBatch, type JudgeAssessmentInput } from '@/firebase/visitors'
 import { sound } from '@/lib/sound'
@@ -57,6 +59,10 @@ export function JudgeAssessmentScreen() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  /** Captured strokes for the celebration replay — one per judge slot (or null). */
+  const [replayStrokes, setReplayStrokes] = useState<
+    (SerializedStrokes | null)[]
+  >([null, null, null])
 
   // One signature-pad ref per slot, plus modal wiring (same pattern as LogForm).
   const sigRefs = useRef<(SignaturePadHandle | null)[]>([null, null, null])
@@ -127,6 +133,13 @@ export function JudgeAssessmentScreen() {
         })
       })
       await saveJudgeAssessmentsBatch(inputs)
+      // Capture each judge's signed strokes for the simultaneous replay.
+      const captured = slots.map((s, idx) =>
+        s.judgeName && s.hasSignature
+          ? (sigRefs.current[idx]?.getStrokes() ?? null)
+          : null,
+      )
+      setReplayStrokes(captured)
       sound.play('chime')
       setSuccess(true)
     } catch (err) {
@@ -142,6 +155,7 @@ export function JudgeAssessmentScreen() {
     sigRefs.current.forEach((r) => r?.clear())
     setSuccess(false)
     setError(null)
+    setReplayStrokes([null, null, null])
   }
 
   if (success) {
@@ -153,6 +167,17 @@ export function JudgeAssessmentScreen() {
         transition={{ duration: 0.6 }}
         className="flex min-h-dvh w-full items-center justify-center px-6 py-10"
       >
+        {/* Three judge signatures replay simultaneously, each in a third of the
+            screen — the "wow" moment after submitting assessments. */}
+        {replayStrokes.map((s, i) =>
+          s ? (
+            <SignatureReplay
+              key={i}
+              strokes={s}
+              region={{ widthFraction: 1 / 3, offsetFraction: i / 3 }}
+            />
+          ) : null,
+        )}
         <div className="relative z-10 flex flex-col items-center text-center">
           <motion.div
             initial={{ scale: 0, opacity: 0 }}

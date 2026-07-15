@@ -6,6 +6,13 @@ interface SignatureReplayProps {
   /** The visitor's captured strokes. If null/empty, the parent should fall back
    *  to the static checkmark + visitor number. */
   strokes: SerializedStrokes | null
+  /**
+   * Constrains the replay to a horizontal fraction of the viewport (used when
+   * multiple replays play simultaneously, e.g. 3 judge signatures side by side).
+   * `widthFraction` = how much of the viewport width to use (default 1 = full).
+   * `offsetFraction` = horizontal offset from the left (default 0).
+   */
+  region?: { widthFraction: number; offsetFraction: number }
 }
 
 /**
@@ -47,7 +54,7 @@ interface Step {
   pressure: number
 }
 
-export function SignatureReplay({ strokes }: SignatureReplayProps) {
+export function SignatureReplay({ strokes, region }: SignatureReplayProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const glowRef = useRef<HTMLCanvasElement>(null)
   const [replayDone, setReplayDone] = useState(false)
@@ -68,13 +75,16 @@ export function SignatureReplay({ strokes }: SignatureReplayProps) {
     // We sample each stroke into bézier segments (midpoint smoothing, same
     // algorithm as StrokeEngine), carrying the ORIGINAL timestamp deltas so the
     // replay follows the visitor's real curve velocity. We also remap the
-    // stroke coords from the source canvas size to the full-screen replay size.
+    // stroke coords from the source canvas size to the replay region size.
     const srcW = strokes.width
     const srcH = strokes.height
-    // The replay canvas is sized to the viewport; we scale strokes to fit,
-    // preserving aspect ratio and centering.
-    const vw = window.innerWidth
-    const vh = window.innerHeight
+    // The replay canvas is sized to the viewport (or a region of it); we scale
+    // strokes to fit, preserving aspect ratio and centering within the region.
+    const fullVw = window.innerWidth
+    const fullVh = window.innerHeight
+    const vw = region ? fullVw * region.widthFraction : fullVw
+    const vh = fullVh
+    const regionOffsetX = region ? fullVw * region.offsetFraction : 0
     const dpr = Math.min(window.devicePixelRatio || 1, 2)
     ink.width = vw * dpr
     ink.height = vh * dpr
@@ -91,7 +101,7 @@ export function SignatureReplay({ strokes }: SignatureReplayProps) {
     const fit = Math.min(vw / srcW, vh / srcH) * 0.85
     const offX = (vw - srcW * fit) / 2
     const offY = (vh - srcH * fit) / 2
-    const tx = (x: number) => offX + x * fit
+    const tx = (x: number) => regionOffsetX + offX + x * fit
     const ty = (y: number) => offY + y * fit
 
     const steps: Step[] = []
@@ -266,6 +276,26 @@ export function SignatureReplay({ strokes }: SignatureReplayProps) {
       transition={{ duration: 1.0 }}
       style={{ pointerEvents: 'none' }}
     >
+      {/* ink layer */}
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0 h-full w-full"
+        style={
+          region
+            ? { left: `${region.offsetFraction * 100}%`, width: `${region.widthFraction * 100}%` }
+            : undefined
+        }
+      />
+      {/* glow layer */}
+      <canvas
+        ref={glowRef}
+        className="absolute inset-0 h-full w-full"
+        style={
+          region
+            ? { left: `${region.offsetFraction * 100}%`, width: `${region.widthFraction * 100}%` }
+            : undefined
+        }
+      />
       {/* ink layer */}
       <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
       {/* glow layer */}
