@@ -60,7 +60,9 @@ export function InkFullViewModal({
 
   const handleDone = () => {
     sound.play('click')
-    const dataUrl = canvasRef.current?.toDataURLWhiteBg() ?? ''
+    // Transparent PNG — NOT white-bg. A white background would break the neon
+    // glow effect in the logs (drop-shadow would glow the rectangle, not the ink).
+    const dataUrl = canvasRef.current?.toDataURL() ?? ''
     onDone(dataUrl)
   }
 

@@ -215,6 +215,7 @@ export function VisitorLogsScreen({ totalCount }: { totalCount: number }) {
                   key={`${entry.visitorNumber}-${i}`}
                   entry={entry}
                   index={i}
+                  totalCount={displayCount}
                   onDelete={() => requestDelete({ kind: 'one', entry })}
                 />
               ))}
@@ -266,10 +267,12 @@ export function VisitorLogsScreen({ totalCount }: { totalCount: number }) {
 function EntryCard({
   entry,
   index,
+  totalCount,
   onDelete,
 }: {
   entry: LogEntry
   index: number
+  totalCount: number
   onDelete: () => void
 }) {
   const [imgFailed, setImgFailed] = useState(false)
@@ -306,7 +309,7 @@ function EntryCard({
               </h3>
               {entry.visitorNumber > 0 && (
                 <span className="shrink-0 rounded-full bg-gold-gradient px-2 py-0.5 text-xs font-semibold text-gold-600 shadow-sm">
-                  #{fmtNumber(entry.visitorNumber)}
+                  #{fmtNumber(totalCount - index)}
                 </span>
               )}
             </div>

@@ -29,7 +29,7 @@ interface SignatureReplayProps {
  *     moving the signature into its resting position near the top of the card.
  */
 const REPLAY_SPEED = 1.0 // 1x real-time; raise for faster playback
-const INK_COLOR = '#3F1D8E' // dark purple ink that reads on the blurred bg
+const INK_COLOR = '#FFFFFF' // bright white ink — visible on the dark celebration bg
 
 interface Step {
   stroke: number
@@ -133,6 +133,10 @@ export function SignatureReplay({ strokes }: SignatureReplayProps) {
     ictx.lineCap = 'round'
     ictx.lineJoin = 'round'
     ictx.strokeStyle = INK_COLOR
+    // Neon glow on the ink canvas itself — bright white core with purple bloom.
+    // shadowBlur gives each stroke a neon halo that follows the line.
+    ictx.shadowColor = '#A855F7'
+    ictx.shadowBlur = 16
     gctx.lineCap = 'round'
 
     let raf = 0
@@ -189,7 +193,7 @@ export function SignatureReplay({ strokes }: SignatureReplayProps) {
       // Draw any steps whose time has come.
       while (nextStep < steps.length && steps[nextStep].t <= t) {
         const s = steps[nextStep]
-        const w = Math.max(1.2, s.baseWidth * (0.5 + 0.5 * s.pressure))
+        const w = Math.max(3, s.baseWidth * (0.5 + 0.5 * s.pressure) * 1.8)
         ictx.lineWidth = w
         ictx.beginPath()
         ictx.moveTo(s.x1, s.y1)
